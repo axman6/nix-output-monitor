@@ -10,8 +10,6 @@ import Control.Exception (IOException, catch)
 import Control.Monad.Trans.Writer.CPS (WriterT)
 -- cassava
 import Data.Csv (FromRecord, HasHeader (NoHeader), ToRecord, decode, encode)
--- data-default
-import Data.Default (def)
 import Data.Map.Strict qualified as Map
 -- filepath
 
@@ -23,7 +21,7 @@ import System.Directory (XdgDirectory (XdgCache), createDirectoryIfMissing, getX
 import System.FilePath ((</>))
 import System.IO.LockFile (
   LockingException (CaughtIOException, UnableToAcquireLockFile),
-  LockingParameters (retryToAcquireLock, sleepBetweenRetries),
+  LockingParameters (..),
   RetryStrategy (NumberOfTimes),
   withLockExt,
   withLockFile,
@@ -66,7 +64,10 @@ tryUpdateBuildReports updateFunc = do
   dir <- buildReportsDir
   catch @IOException (createDirectoryIfMissing True dir) (const pass)
   withLockFile
-    def{retryToAcquireLock = NumberOfTimes 10, sleepBetweenRetries = 500000}
+    LockingParameters
+      { retryToAcquireLock = NumberOfTimes 10
+      , sleepBetweenRetries = 500000
+      }
     (dir </> withLockExt buildReportsFilename)
     (updateBuildReportsUnlocked updateFunc dir)
 

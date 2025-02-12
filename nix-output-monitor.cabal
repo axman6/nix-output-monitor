@@ -64,7 +64,6 @@ common common-config
     , bytestring
     , cassava
     , containers
-    , data-default
     , directory
     , extra
     , filepath
