@@ -27,6 +27,7 @@ import Relude
 import System.Console.ANSI qualified as Terminal
 import System.Console.Terminal.Size (Window)
 import System.Environment qualified as Environment
+import System.IO qualified as SIO
 import System.IO.Error qualified as IOError
 import System.Posix.Signals qualified as Signals
 import System.Process.Typed (proc, runProcess)
@@ -146,8 +147,8 @@ printIOException io_exception = do
 runMonitoredCommand :: Config -> Process.ProcessConfig () () () -> IO Process.ExitCode
 runMonitoredCommand config process_config = do
   let process_config_with_handles =
-        Process.setStdout Process.createPipe
-          . Process.setStderr Process.createPipe
+        Process.setStdout createBinaryPipe
+          . Process.setStderr createBinaryPipe
           $ process_config
   Exception.handle ((ExitFailure 1 <$) . printIOException)
     $ Process.withProcessWait process_config_with_handles \process -> do
@@ -156,6 +157,12 @@ runMonitoredCommand config process_config = do
       output <- ByteString.hGetContents (Process.getStdout process)
       unless (ByteString.null output) $ ByteString.hPut stdout output
       pure exitCode
+ where
+  -- Process.createPipe which sets BinaryMode on the handlle
+  createBinaryPipe :: Process.StreamSpec anyStreamType Handle
+  createBinaryPipe = Process.mkPipeStreamSpec $ \_ h -> do
+    SIO.hSetBinaryMode h True
+    return (h, SIO.hClose h)
 
 data ProcessState a = MkProcessState
   { updaterState :: UpdaterState a
