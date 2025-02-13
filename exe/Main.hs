@@ -147,22 +147,18 @@ printIOException io_exception = do
 runMonitoredCommand :: Config -> Process.ProcessConfig () () () -> IO Process.ExitCode
 runMonitoredCommand config process_config = do
   let process_config_with_handles =
-        Process.setStdout createBinaryPipe
-          . Process.setStderr createBinaryPipe
+        Process.setStdout Process.createPipe
+          . Process.setStderr Process.createPipe
           $ process_config
   Exception.handle ((ExitFailure 1 <$) . printIOException)
     $ Process.withProcessWait process_config_with_handles \process -> do
+      SIO.hSetBinaryMode (Process.getStdout process) True
+      SIO.hSetBinaryMode (Process.getStderr process) True
       void $ monitorHandle @NixJSONMessage config (Process.getStderr process)
       exitCode <- Process.waitExitCode process
       output <- ByteString.hGetContents (Process.getStdout process)
       unless (ByteString.null output) $ ByteString.hPut stdout output
       pure exitCode
- where
-  -- Process.createPipe which sets BinaryMode on the handlle
-  createBinaryPipe :: Process.StreamSpec anyStreamType Handle
-  createBinaryPipe = Process.mkPipeStreamSpec $ \_ h -> do
-    SIO.hSetBinaryMode h True
-    return (h, SIO.hClose h)
 
 data ProcessState a = MkProcessState
   { updaterState :: UpdaterState a
